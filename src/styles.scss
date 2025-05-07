@@ -1,0 +1,44 @@
+/* PrimeNG Theme */
+/* Custom Variables */
+:root {
+  --primary-color: #2563eb;
+  --text-color: #1f2937;
+  --text-color-secondary: #6b7280;
+  --surface-ground: #f3f4f6;
+  --surface-border: #e5e7eb;
+  --surface-hover: #f9fafb;
+}
+
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-color);
+  background: var(--surface-ground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* PrimeNG Overrides */
+.p-timeline-event-content {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.p-timeline-event-opposite {
+  display: none !important;
+}
+
+.p-timeline-event-connector {
+  background-color: var(--surface-border) !important;
+}
+
+.p-timeline-event-marker {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+} 

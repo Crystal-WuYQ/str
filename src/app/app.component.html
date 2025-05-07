@@ -1,0 +1,62 @@
+<!-- Main Layout -->
+<div class="layout-wrapper">
+  <!-- Top Navigation -->
+  <header class="layout-topbar">
+      <div class="topbar-left">
+          <img src="assets/logo.png" alt="Logo" class="logo">
+      </div>
+      <div class="topbar-right">
+          <a href="#" class="topbar-link">
+              <i class="pi pi-book"></i>
+              <span>Documentation</span>
+          </a>
+          <a routerLink="/release-notes" class="topbar-link">
+              <i class="pi pi-star"></i>
+              <span>Release Notes</span>
+          </a>
+          <button pButton class="p-button-text" icon="pi pi-comment" label="Feedback"></button>
+          <button pButton class="p-button-text" icon="pi pi-bug" label="Report Bug"></button>
+          <div class="user-info">
+              <img src="assets/avatar.png" alt="User" class="avatar">
+              <span class="username">John Doe</span>
+          </div>
+      </div>
+  </header>
+
+  <!-- Side Navigation -->
+  <aside class="layout-sidebar">
+      <nav class="sidebar-nav">
+          <ul>
+              <li>
+                  <a>
+                      <i class="pi pi-list"></i>
+                      <span>Tests</span>
+                  </a>
+              </li>
+              <li>
+                  <a>
+                      <i class="pi pi-th-large"></i>
+                      <span>Test Suites</span>
+                  </a>
+              </li>
+              <li>
+                  <a>
+                      <i class="pi pi-play"></i>
+                      <span>Execution</span>
+                  </a>
+              </li>
+              <li>
+                  <a>
+                      <i class="pi pi-folder"></i>
+                      <span>Projects</span>
+                  </a>
+              </li>
+          </ul>
+      </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="layout-main">
+      <router-outlet></router-outlet>
+  </main>
+</div> 
