@@ -27,7 +27,18 @@ import { CommonModule } from '@angular/common';
         </svg>
       </div>
       <div class="usage-details">
-        <span>{{ used }} / {{ max }} {{ unit }}</span>
+        <div class="usage-row">
+          <span class="label">Used:</span>
+          <span class="value">{{ used | number:'1.0-2' }} {{ unit }}</span>
+        </div>
+        <div class="usage-row">
+          <span class="label">Max:</span>
+          <span class="value">{{ max | number:'1.0-2' }} {{ unit }}</span>
+        </div>
+        <div class="usage-row">
+          <span class="label">Available:</span>
+          <span class="value">{{ max - used | number:'1.0-2' }} {{ unit }}</span>
+        </div>
       </div>
     </div>
   `,
@@ -92,6 +103,30 @@ import { CommonModule } from '@angular/common';
     .usage-details {
       color: #666;
       font-size: 0.875rem;
+      margin-top: 1rem;
+    }
+
+    .usage-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      padding: 0.25rem 0;
+    }
+
+    .usage-row:last-child {
+      margin-bottom: 0;
+      border-top: 1px solid #ddd;
+      padding-top: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .label {
+      color: #666;
+    }
+
+    .value {
+      font-weight: 500;
+      color: #333;
     }
 
     .icon-details::before { content: '📊'; }

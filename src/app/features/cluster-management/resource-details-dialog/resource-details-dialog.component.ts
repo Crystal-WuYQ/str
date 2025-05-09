@@ -19,10 +19,31 @@ import { ResourceItemComponent } from './resource-item.component';
       <div class="dialog-content">
         <div class="resource-details">
           <app-resource-item
-            title="CPU Usage"
+            title="CPU Limits"
             [used]="cluster.used.limitsCPU"
             [max]="cluster.max.limitsCPU"
             unit="CPU"
+          ></app-resource-item>
+
+          <app-resource-item
+            title="CPU Requests"
+            [used]="cluster.used.requestsCPU"
+            [max]="cluster.max.requestsCPU"
+            unit="CPU"
+          ></app-resource-item>
+
+          <app-resource-item
+            title="Memory Limits"
+            [used]="cluster.used.limitsMemory"
+            [max]="cluster.max.limitsMemory"
+            unit="Mi"
+          ></app-resource-item>
+
+          <app-resource-item
+            title="Memory Requests"
+            [used]="cluster.used.requestsMemory"
+            [max]="cluster.max.requestsMemory"
+            unit="Mi"
           ></app-resource-item>
 
           <app-resource-item
@@ -30,13 +51,6 @@ import { ResourceItemComponent } from './resource-item.component';
             [used]="cluster.used.pods"
             [max]="cluster.max.pods"
             unit="Pods"
-          ></app-resource-item>
-
-          <app-resource-item
-            title="Requests CPU Usage"
-            [used]="cluster.used.requestsCPU"
-            [max]="cluster.max.requestsCPU"
-            unit="CPU"
           ></app-resource-item>
         </div>
       </div>
@@ -51,7 +65,7 @@ import { ResourceItemComponent } from './resource-item.component';
       background: white;
       border-radius: 8px;
       width: 90%;
-      max-width: 600px;
+      max-width: 800px;
       max-height: 90vh;
       display: flex;
       flex-direction: column;
@@ -84,8 +98,8 @@ import { ResourceItemComponent } from './resource-item.component';
 
     .resource-details {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
     }
 
     .btn {
@@ -120,6 +134,12 @@ import { ResourceItemComponent } from './resource-item.component';
     }
 
     .icon-close::before { content: '×'; }
+
+    @media (max-width: 768px) {
+      .resource-details {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+    }
   `]
 })
 export class ResourceDetailsDialogComponent {
