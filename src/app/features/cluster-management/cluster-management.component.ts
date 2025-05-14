@@ -1,219 +1,164 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ClusterTableComponent } from './cluster-table.component';
+import { ResourceDetailsDialogComponent } from './resource-details-dialog/resource-details-dialog.component';
+import { ProjectsDialogComponent } from './projects-dialog/projects-dialog.component';
+import { PodsTemplateDialogComponent } from './pods-template-dialog/pods-template-dialog.component';
+import { ClusterFormDialogComponent } from './cluster-form-dialog/cluster-form-dialog.component';
 
-export interface ResourceQuota {
-  type: string;
-  used: number;
-  max: number;
-  capacity: number;
+export interface ResourceUsage {
+  cpuUsage: number;
+  podsUsage: number;
+  requestsCpuUsage: number;
 }
 
 export interface Cluster {
-  id: string;
   name: string;
   namespace: string;
-  type: 'public' | 'private';
-  createdBy: string;
+  type: string;
   assignedProjects: string[];
-  reservedCPU: number;
   podsTemplate: string;
-  resourceQuota: ResourceQuota[];
+  createdTime: string;
+  max: {
+    limitsCPU: number;
+    limitsMemory: number;
+    pods: number;
+    requestsCPU: number;
+    requestsMemory: number;
+  };
+  used: {
+    limitsCPU: number;
+    limitsMemory: number;
+    pods: number;
+    requestsCPU: number;
+    requestsMemory: number;
+  };
 }
 
 @Component({
   selector: 'app-cluster-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClusterTableComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ResourceDetailsDialogComponent,
+    ProjectsDialogComponent,
+    PodsTemplateDialogComponent,
+    ClusterFormDialogComponent
+  ],
   template: `
     <div class="cluster-management">
       <div class="header">
         <h1>Cluster Management</h1>
-        <div class="header-actions">
-          <div class="view-toggle">
-            <button class="btn" [class.active]="viewMode === 'card'" (click)="viewMode = 'card'" title="Card View">
-              <i class="icon-grid"></i>
-            </button>
-            <button class="btn" [class.active]="viewMode === 'table'" (click)="viewMode = 'table'" title="Table View">
-              <i class="icon-table"></i>
-            </button>
-          </div>
-          <button class="btn btn-primary" (click)="showAddDialog()">
-            <i class="icon-plus"></i>
-            Add Cluster
-          </button>
-        </div>
+        <button class="btn btn-primary" (click)="openAddClusterDialog()">
+          Add Cluster
+        </button>
       </div>
 
-      @if (viewMode === 'table') {
-        <app-cluster-table
-          [clusters]="clusters"
-          (onEdit)="editCluster($event)"
-          (onDelete)="deleteCluster($event)"
-          (onViewPods)="viewPodsTemplate($event)">
-        </app-cluster-table>
-      } @else {
-        <div class="cluster-grid">
-          @for (cluster of clusters; track cluster.id) {
-            <div class="cluster-card">
-              <div class="card-header">
-                <h2>{{cluster.name}}</h2>
-                <span class="cluster-type" [class]="cluster.type">
-                  {{cluster.type === 'public' ? 'Public' : 'Private'}}
-                </span>
-              </div>
-
-              <div class="card-content">
-                <div class="info-section">
-                  <div class="info-item">
-                    <label>Namespace:</label>
-                    <span>{{cluster.namespace}}</span>
-                  </div>
-                  <div class="info-item">
-                    <label>Created By:</label>
-                    <span>{{cluster.createdBy}}</span>
-                  </div>
-                  <div class="info-item">
-                    <label>Reserved CPU:</label>
-                    <span>{{cluster.reservedCPU}} cores</span>
-                  </div>
-                  <div class="info-item">
-                    <label>Assigned Projects:</label>
-                    <div class="project-tags">
-                      @for (project of cluster.assignedProjects; track project) {
-                        <span class="tag">{{project}}</span>
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                <div class="quota-section">
-                  <h3>Resource Quota</h3>
-                  <div class="quota-grid">
-                    @for (quota of cluster.resourceQuota; track quota.type) {
-                      <div class="quota-item">
-                        <div class="quota-header">
-                          <span class="quota-type">{{quota.type}}</span>
-                          <span class="quota-values">{{quota.used}}/{{quota.max}}</span>
-                        </div>
-                        <div class="circular-progress">
-                          <svg viewBox="0 0 36 36" class="circular-chart">
-                            <path class="circle-bg"
-                              d="M18 2.0845
-                                a 15.9155 15.9155 0 0 1 0 31.831
-                                a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            <path class="circle"
-                              [style.strokeDasharray]="quota.capacity + ', 100'"
-                              d="M18 2.0845
-                                a 15.9155 15.9155 0 0 1 0 31.831
-                                a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            <text x="18" y="20.35" class="percentage">{{quota.capacity}}%</text>
-                          </svg>
-                        </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Namespace</th>
+              <th>Type</th>
+              <th>Resource Usage</th>
+              <th>Projects</th>
+              <th>Pods Template</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let cluster of clusters">
+              <td>{{ cluster.name }}</td>
+              <td>{{ cluster.namespace }}</td>
+              <td>{{ cluster.type }}</td>
+              <td>
+                <div class="resource-usage">
+                  <div class="usage-item">
+                    <span class="label">CPU:</span>
+                    <div class="progress-bar">
+                      <div class="progress" 
+                        [style.width.%]="calculateResourceUsage(cluster).cpuUsage"
+                        [class.warning]="calculateResourceUsage(cluster).cpuUsage >= 70"
+                        [class.danger]="calculateResourceUsage(cluster).cpuUsage >= 90">
                       </div>
-                    }
+                    </div>
+                    <span class="value">{{ calculateResourceUsage(cluster).cpuUsage | number:'1.0-1' }}%</span>
+                  </div>
+                  <div class="usage-item">
+                    <span class="label">Pods:</span>
+                    <div class="progress-bar">
+                      <div class="progress"
+                        [style.width.%]="calculateResourceUsage(cluster).podsUsage"
+                        [class.warning]="calculateResourceUsage(cluster).podsUsage >= 70"
+                        [class.danger]="calculateResourceUsage(cluster).podsUsage >= 90">
+                      </div>
+                    </div>
+                    <span class="value">{{ calculateResourceUsage(cluster).podsUsage | number:'1.0-1' }}%</span>
                   </div>
                 </div>
-              </div>
-
-              <div class="card-footer">
-                <button class="btn btn-icon" (click)="editCluster(cluster)" title="Edit">
-                  <i class="icon-edit"></i>
+              </td>
+              <td>
+                <button class="btn btn-link" (click)="openProjectsDialog(cluster)">
+                  {{ cluster.assignedProjects.length }} Projects
                 </button>
-                <button class="btn btn-icon btn-danger" (click)="deleteCluster(cluster)" title="Delete">
-                  <i class="icon-trash"></i>
+              </td>
+              <td>
+                <button class="btn btn-link" (click)="openPodsTemplateDialog(cluster)">
+                  View Template
                 </button>
-                <button class="btn btn-icon" (click)="viewPodsTemplate(cluster)" title="View Pods Template">
-                  <i class="icon-code"></i>
-                </button>
-              </div>
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    <!-- Add/Edit Cluster Dialog -->
-    <div class="modal" [class.show]="showDialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>{{isEditing ? 'Edit Cluster' : 'Add Cluster'}}</h2>
-          <button class="btn btn-icon" (click)="showDialog = false">
-            <i class="icon-close"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Cluster Name</label>
-            <input type="text" [(ngModel)]="selectedCluster.name" [disabled]="isEditing">
-          </div>
-          <div class="form-group">
-            <label>Namespace</label>
-            <input type="text" [(ngModel)]="selectedCluster.namespace" [disabled]="isEditing">
-          </div>
-          <div class="form-group">
-            <label>Cluster Type</label>
-            <select [(ngModel)]="selectedCluster.type" [disabled]="isEditing">
-              @for (type of clusterTypes; track type.value) {
-                <option [value]="type.value">{{type.label}}</option>
-              }
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Reserved CPU</label>
-            <input type="number" [(ngModel)]="selectedCluster.reservedCPU">
-          </div>
-          <div class="form-group">
-            <label>Assigned Projects</label>
-            <div class="multi-select">
-              @for (project of availableProjects; track project.value) {
-                <label class="checkbox">
-                  <input type="checkbox" 
-                    [checked]="selectedCluster.assignedProjects.includes(project.value)"
-                    (change)="toggleProject(project.value)">
-                  {{project.label}}
-                </label>
-              }
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" (click)="showDialog = false">Cancel</button>
-          <button class="btn btn-primary" (click)="saveCluster()">Save</button>
-        </div>
+              </td>
+              <td>
+                <div class="actions">
+                  <button class="btn btn-icon" (click)="openResourceDetailsDialog(cluster)">
+                    <i class="icon-details"></i>
+                  </button>
+                  <button class="btn btn-icon" (click)="editCluster(cluster)">
+                    <i class="icon-edit"></i>
+                  </button>
+                  <button class="btn btn-icon" (click)="deleteCluster(cluster)">
+                    <i class="icon-delete"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
 
-    <!-- Pods Template Dialog -->
-    <div class="modal" [class.show]="showPodsDialog">
-      <div class="modal-content modal-large">
-        <div class="modal-header">
-          <h2>Pods Template</h2>
-          <button class="btn btn-icon" (click)="showPodsDialog = false">
-            <i class="icon-close"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="editor-container">
-            <textarea [(ngModel)]="selectedCluster.podsTemplate" 
-              class="code-editor" 
-              spellcheck="false">
-            </textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" (click)="showPodsDialog = false">Cancel</button>
-          <button class="btn btn-primary" (click)="savePodsTemplate()">Save</button>
-        </div>
-      </div>
+      <app-resource-details-dialog
+        *ngIf="showResourceDetails && selectedCluster"
+        [cluster]="selectedCluster"
+        [onClose]="closeResourceDetailsDialog"
+      ></app-resource-details-dialog>
+
+      <app-projects-dialog
+        *ngIf="showProjectsDialog && selectedCluster"
+        [cluster]="selectedCluster"
+        [onClose]="closeProjectsDialog"
+        [onSave]="saveProjects"
+      ></app-projects-dialog>
+
+      <app-pods-template-dialog
+        *ngIf="showPodsTemplateDialog && selectedCluster"
+        [cluster]="selectedCluster"
+        [onClose]="closePodsTemplateDialog"
+        [onSave]="savePodsTemplate"
+      ></app-pods-template-dialog>
+
+      <app-cluster-form-dialog
+        *ngIf="showClusterForm"
+        [isEdit]="isEditingCluster"
+        [cluster]="selectedCluster!"
+        [onClose]="closeClusterForm"
+        [onSubmit]="saveCluster"
+        [referenceValues]="clusterReferenceValues"
+      ></app-cluster-form-dialog>
     </div>
   `,
   styles: [`
-    :host {
-      display: block;
+    .cluster-management {
       padding: 2rem;
     }
 
@@ -222,200 +167,90 @@ export interface Cluster {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 2rem;
-
-      h1 {
-        margin: 0;
-        color: var(--text-color);
-      }
     }
 
-    .header-actions {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
+    .header h1 {
+      margin: 0;
+      font-size: 1.5rem;
     }
 
-    .view-toggle {
-      display: flex;
-      gap: 0.5rem;
-      background: #f5f5f5;
-      padding: 0.25rem;
-      border-radius: 4px;
-
-      .btn {
-        padding: 0.5rem;
-        background: none;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        color: #666;
-
-        &:hover {
-          background: #e0e0e0;
-        }
-
-        &.active {
-          background: white;
-          color: #2196F3;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-      }
-    }
-
-    .cluster-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-      gap: 2rem;
-    }
-
-    .cluster-card {
+    .table-container {
       background: white;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      transition: transform 0.2s, box-shadow 0.2s;
-
-      &:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      }
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
     }
 
-    .card-header {
-      padding: 1.5rem;
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 1rem;
+      text-align: left;
       border-bottom: 1px solid #eee;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      h2 {
-        margin: 0;
-        font-size: 1.25rem;
-        color: var(--text-color);
-      }
     }
 
-    .cluster-type {
-      padding: 0.5rem 1rem;
-      border-radius: 1rem;
-      font-size: 0.875rem;
+    .data-table th {
+      background: #f5f5f5;
       font-weight: 500;
-
-      &.public {
-        background: #2196F3;
-        color: white;
-      }
-
-      &.private {
-        background: #E0E0E0;
-        color: #424242;
-      }
+      color: #666;
     }
 
-    .card-content {
-      padding: 1.5rem;
+    .data-table tr:hover {
+      background: #f9f9f9;
     }
 
-    .info-section {
-      margin-bottom: 1.5rem;
-    }
-
-    .info-item {
+    .resource-usage {
       display: flex;
-      margin-bottom: 0.75rem;
-
-      label {
-        width: 120px;
-        color: #666;
-      }
-
-      span {
-        color: #333;
-      }
-    }
-
-    .project-tags {
-      display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 0.5rem;
     }
 
-    .tag {
-      background: #E3F2FD;
-      color: #1976D2;
-      padding: 0.25rem 0.75rem;
-      border-radius: 1rem;
+    .usage-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .label {
+      min-width: 40px;
+      color: #666;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background: #E0E0E0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress {
+      height: 100%;
+      background: #2196F3;
+      transition: width 0.3s ease;
+    }
+
+    .progress.warning {
+      background: #FFA726;
+    }
+
+    .progress.danger {
+      background: #F44336;
+    }
+
+    .value {
+      min-width: 50px;
+      text-align: right;
+      color: #666;
       font-size: 0.875rem;
     }
 
-    .quota-section {
-      h3 {
-        margin: 0 0 1rem;
-        color: #333;
-      }
-    }
-
-    .quota-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .quota-item {
-      text-align: center;
-    }
-
-    .quota-header {
-      margin-bottom: 1rem;
-
-      .quota-type {
-        display: block;
-        color: #333;
-        margin-bottom: 0.5rem;
-      }
-
-      .quota-values {
-        color: #666;
-        font-size: 0.875rem;
-      }
-    }
-
-    .circular-progress {
-      width: 100px;
-      height: 100px;
-      margin: 0 auto;
-    }
-
-    .circular-chart {
-      display: block;
-      margin: 0 auto;
-      max-width: 100%;
-    }
-
-    .circle-bg {
-      fill: none;
-      stroke: #E0E0E0;
-      stroke-width: 3;
-    }
-
-    .circle {
-      fill: none;
-      stroke: #2196F3;
-      stroke-width: 3;
-      stroke-linecap: round;
-      animation: progress 1s ease-out forwards;
-    }
-
-    .percentage {
-      fill: #333;
-      font-size: 0.5em;
-      text-anchor: middle;
-    }
-
-    .card-footer {
-      padding: 1rem 1.5rem;
-      border-top: 1px solid #eee;
+    .actions {
       display: flex;
-      justify-content: flex-end;
       gap: 0.5rem;
     }
 
@@ -429,374 +264,195 @@ export interface Cluster {
       align-items: center;
       gap: 0.5rem;
       transition: background-color 0.2s;
-
-      &.btn-primary {
-        background: #2196F3;
-        color: white;
-
-        &:hover {
-          background: #1976D2;
-        }
-      }
-
-      &.btn-secondary {
-        background: #E0E0E0;
-        color: #424242;
-
-        &:hover {
-          background: #BDBDBD;
-        }
-      }
-
-      &.btn-danger {
-        background: #F44336;
-        color: white;
-
-        &:hover {
-          background: #D32F2F;
-        }
-      }
-
-      &.btn-icon {
-        padding: 0.5rem;
-        border-radius: 50%;
-
-        i {
-          font-size: 1rem;
-        }
-      }
     }
 
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-
-      &.show {
-        display: flex;
-      }
+    .btn-primary {
+      background: #2196F3;
+      color: white;
     }
 
-    .modal-content {
-      background: white;
-      border-radius: 8px;
-      width: 90%;
-      max-width: 600px;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-
-      &.modal-large {
-        max-width: 800px;
-      }
+    .btn-primary:hover {
+      background: #1976D2;
     }
 
-    .modal-header {
-      padding: 1.5rem;
-      border-bottom: 1px solid #eee;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      h2 {
-        margin: 0;
-        font-size: 1.25rem;
-      }
+    .btn-link {
+      background: none;
+      color: #2196F3;
+      padding: 0.25rem 0.5rem;
     }
 
-    .modal-body {
-      padding: 1.5rem;
-      overflow-y: auto;
+    .btn-link:hover {
+      background: #E3F2FD;
     }
 
-    .modal-footer {
-      padding: 1rem 1.5rem;
-      border-top: 1px solid #eee;
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.5rem;
-    }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-
-      label {
-        display: block;
-        margin-bottom: 0.5rem;
-        color: #333;
-      }
-
-      input, select {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #E0E0E0;
-        border-radius: 4px;
-        font-size: 0.875rem;
-
-        &:disabled {
-          background: #F5F5F5;
-          cursor: not-allowed;
-        }
-      }
-    }
-
-    .multi-select {
-      border: 1px solid #E0E0E0;
-      border-radius: 4px;
+    .btn-icon {
       padding: 0.5rem;
-      max-height: 200px;
-      overflow-y: auto;
+      border-radius: 50%;
+      background: none;
     }
 
-    .checkbox {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem;
-      cursor: pointer;
-
-      &:hover {
-        background: #F5F5F5;
-      }
+    .btn-icon:hover {
+      background: #f5f5f5;
     }
 
-    .editor-container {
-      border: 1px solid #E0E0E0;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .code-editor {
-      width: 100%;
-      height: 400px;
-      padding: 1rem;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-      font-size: 0.875rem;
-      line-height: 1.5;
-      border: none;
-      resize: none;
-      outline: none;
-    }
-
-    .icon-grid::before { content: '⊞'; }
-    .icon-table::before { content: '⊟'; }
-    .icon-plus::before { content: '+'; }
+    .icon-details::before { content: '📊'; }
     .icon-edit::before { content: '✎'; }
-    .icon-trash::before { content: '🗑'; }
-    .icon-code::before { content: '</>'; }
-    .icon-close::before { content: '×'; }
+    .icon-delete::before { content: '🗑'; }
   `]
 })
 export class ClusterManagementComponent implements OnInit {
   clusters: Cluster[] = [];
-  showDialog = false;
-  showPodsDialog = false;
-  isEditing = false;
-  viewMode: 'card' | 'table' = 'card';
-  selectedCluster: Cluster = this.createEmptyCluster();
-  clusterTypes = [
-    { label: 'Public', value: 'public' },
-    { label: 'Private', value: 'private' }
-  ];
-  availableProjects = [
-    { label: 'Project A', value: 'Project A' },
-    { label: 'Project B', value: 'Project B' },
-    { label: 'Project C', value: 'Project C' },
-    { label: 'Project D', value: 'Project D' },
-    { label: 'Project E', value: 'Project E' }
-  ];
-
-  constructor() {}
+  selectedCluster: Cluster | null = null;
+  showResourceDetails = false;
+  showProjectsDialog = false;
+  showPodsTemplateDialog = false;
+  showClusterForm = false;
+  isEditingCluster = false;
+  clusterReferenceValues = {
+    totalRequestCPU: 100,
+    totalLimitCPU: 200,
+    totalRequestMemory: 1000,
+    totalLimitMemory: 2000
+  };
 
   ngOnInit() {
+    // TODO: Load clusters from service
     this.loadClusters();
   }
 
   loadClusters() {
+    // Mock data for testing
     this.clusters = [
       {
-        id: '1',
-        name: 'Public Cluster 1',
+        name: 'cluster-1',
         namespace: 'default',
-        type: 'public',
-        createdBy: 'System',
-        assignedProjects: ['Project A', 'Project B'],
-        reservedCPU: 4,
-        podsTemplate: JSON.stringify({
-          apiVersion: 'v1',
-          kind: 'Pod',
-          metadata: {
-            name: 'example-pod',
-            namespace: 'default'
-          },
-          spec: {
-            containers: [{
-              name: 'nginx',
-              image: 'nginx:latest',
-              ports: [{
-                containerPort: 80
-              }]
-            }]
-          }
-        }, null, 2),
-        resourceQuota: [
-          { type: 'Limit CPU', used: 8, max: 16, capacity: 50 },
-          { type: 'Pods', used: 20, max: 50, capacity: 40 },
-          { type: 'Requests CPU', used: 4, max: 8, capacity: 50 }
-        ]
-      },
-      {
-        id: '2',
-        name: 'Private Cluster 1',
-        namespace: 'custom',
-        type: 'private',
-        createdBy: 'John Doe',
-        assignedProjects: ['Project C'],
-        reservedCPU: 8,
-        podsTemplate: JSON.stringify({
-          apiVersion: 'v1',
-          kind: 'Pod',
-          metadata: {
-            name: 'custom-pod',
-            namespace: 'custom'
-          },
-          spec: {
-            containers: [{
-              name: 'custom-app',
-              image: 'custom-app:latest',
-              resources: {
-                requests: {
-                  cpu: '500m',
-                  memory: '512Mi'
-                },
-                limits: {
-                  cpu: '1000m',
-                  memory: '1Gi'
-                }
-              }
-            }]
-          }
-        }, null, 2),
-        resourceQuota: [
-          { type: 'Limit CPU', used: 16, max: 32, capacity: 50 },
-          { type: 'Pods', used: 40, max: 100, capacity: 40 },
-          { type: 'Requests CPU', used: 8, max: 16, capacity: 50 }
-        ]
-      },
-      {
-        id: '3',
-        name: 'Public Cluster 2',
-        namespace: 'default',
-        type: 'public',
-        createdBy: 'System',
-        assignedProjects: ['Project D', 'Project E'],
-        reservedCPU: 16,
-        podsTemplate: JSON.stringify({
-          apiVersion: 'v1',
-          kind: 'Pod',
-          metadata: {
-            name: 'high-performance-pod',
-            namespace: 'default'
-          },
-          spec: {
-            containers: [{
-              name: 'high-perf-app',
-              image: 'high-perf-app:latest',
-              resources: {
-                requests: {
-                  cpu: '2000m',
-                  memory: '4Gi'
-                },
-                limits: {
-                  cpu: '4000m',
-                  memory: '8Gi'
-                }
-              }
-            }]
-          }
-        }, null, 2),
-        resourceQuota: [
-          { type: 'Limit CPU', used: 32, max: 64, capacity: 50 },
-          { type: 'Pods', used: 80, max: 200, capacity: 40 },
-          { type: 'Requests CPU', used: 16, max: 32, capacity: 50 }
-        ]
+        type: 'Production',
+        assignedProjects: ['project-1', 'project-2'],
+        podsTemplate: 'apiVersion: v1\nkind: Pod\nmetadata:\n  name: example-pod',
+        createdTime: '2024-01-01T00:00:00Z',
+        max: {
+          limitsCPU: 100,
+          pods: 1000,
+          requestsCPU: 80,
+          limitsMemory: 1000,
+          requestsMemory: 800
+        },
+        used: {
+          limitsCPU: 60,
+          pods: 500,
+          requestsCPU: 40,
+          limitsMemory: 600,
+          requestsMemory: 400
+        }
       }
     ];
   }
 
-  createEmptyCluster(): Cluster {
+  calculateResourceUsage(cluster: Cluster): ResourceUsage {
     return {
-      id: '',
-      name: '',
-      namespace: '',
-      type: 'private',
-      createdBy: '',
-      assignedProjects: [],
-      reservedCPU: 0,
-      podsTemplate: '',
-      resourceQuota: [
-        { type: 'Limit CPU', used: 0, max: 0, capacity: 0 },
-        { type: 'Pods', used: 0, max: 0, capacity: 0 },
-        { type: 'Requests CPU', used: 0, max: 0, capacity: 0 }
-      ]
+      cpuUsage: (cluster.used.limitsCPU / cluster.max.limitsCPU) * 100,
+      podsUsage: (cluster.used.pods / cluster.max.pods) * 100,
+      requestsCpuUsage: (cluster.used.requestsCPU / cluster.max.requestsCPU) * 100
     };
   }
 
-  showAddDialog() {
-    this.isEditing = false;
-    this.selectedCluster = this.createEmptyCluster();
-    this.showDialog = true;
+  openResourceDetailsDialog(cluster: Cluster) {
+    this.selectedCluster = cluster;
+    this.showResourceDetails = true;
+  }
+
+  closeResourceDetailsDialog = () => {
+    this.showResourceDetails = false;
+    this.selectedCluster = null;
+  }
+
+  openProjectsDialog(cluster: Cluster) {
+    this.selectedCluster = cluster;
+    this.showProjectsDialog = true;
+  }
+
+  closeProjectsDialog = () => {
+    this.showProjectsDialog = false;
+    this.selectedCluster = null;
+  }
+
+  saveProjects = (projects: string[]) => {
+    if (this.selectedCluster) {
+      this.selectedCluster.assignedProjects = projects;
+      // TODO: Save to backend
+    }
+  }
+
+  openPodsTemplateDialog(cluster: Cluster) {
+    this.selectedCluster = cluster;
+    this.showPodsTemplateDialog = true;
+  }
+
+  closePodsTemplateDialog = () => {
+    this.showPodsTemplateDialog = false;
+    this.selectedCluster = null;
+  }
+
+  savePodsTemplate = (template: string) => {
+    if (this.selectedCluster) {
+      this.selectedCluster.podsTemplate = template;
+      // TODO: Save to backend
+    }
+  }
+
+  openAddClusterDialog() {
+    this.isEditingCluster = false;
+    this.selectedCluster = null;
+    this.showClusterForm = true;
   }
 
   editCluster(cluster: Cluster) {
-    this.isEditing = true;
-    this.selectedCluster = { ...cluster };
-    this.showDialog = true;
+    this.isEditingCluster = true;
+    this.selectedCluster = cluster;
+    this.showClusterForm = true;
+  }
+
+  closeClusterForm = () => {
+    this.showClusterForm = false;
+    this.selectedCluster = null;
+    this.isEditingCluster = false;
+  }
+
+  saveCluster = (formData: any) => {
+    if (this.isEditingCluster && this.selectedCluster) {
+      // Update existing cluster
+      Object.assign(this.selectedCluster, formData);
+      // TODO: Call backend API to update cluster
+    } else {
+      // Create new cluster
+      const newCluster: Cluster = {
+        ...formData,
+        namespace: 'default', // TODO: Get from form or configuration
+        assignedProjects: [],
+        podsTemplate: '',
+        createdTime: new Date().toISOString(),
+        max: {
+          limitsCPU: this.clusterReferenceValues.totalLimitCPU,
+          limitsMemory: this.clusterReferenceValues.totalLimitMemory,
+          pods: 1000, // TODO: Get from configuration
+          requestsCPU: this.clusterReferenceValues.totalRequestCPU,
+          requestsMemory: this.clusterReferenceValues.totalRequestMemory
+        },
+        used: {
+          limitsCPU: 0,
+          limitsMemory: 0,
+          pods: 0,
+          requestsCPU: 0,
+          requestsMemory: 0
+        }
+      };
+      this.clusters.push(newCluster);
+      // TODO: Call backend API to create cluster
+    }
+    this.closeClusterForm();
   }
 
   deleteCluster(cluster: Cluster) {
-    // Implement delete logic
-  }
-
-  toggleProject(project: string) {
-    const index = this.selectedCluster.assignedProjects.indexOf(project);
-    if (index === -1) {
-      this.selectedCluster.assignedProjects.push(project);
-    } else {
-      this.selectedCluster.assignedProjects.splice(index, 1);
-    }
-  }
-
-  saveCluster() {
-    if (this.isEditing) {
-      const index = this.clusters.findIndex(c => c.id === this.selectedCluster.id);
-      if (index !== -1) {
-        this.clusters[index] = { ...this.selectedCluster };
-      }
-    } else {
-      this.selectedCluster.id = (this.clusters.length + 1).toString();
-      this.clusters.push({ ...this.selectedCluster });
-    }
-    this.showDialog = false;
-  }
-
-  viewPodsTemplate(cluster: Cluster) {
-    this.selectedCluster = { ...cluster };
-    this.showPodsDialog = true;
-  }
-
-  savePodsTemplate() {
-    const index = this.clusters.findIndex(c => c.id === this.selectedCluster.id);
-    if (index !== -1) {
-      this.clusters[index].podsTemplate = this.selectedCluster.podsTemplate;
-    }
-    this.showPodsDialog = false;
+    // TODO: Implement delete confirmation and backend call
   }
 } 
