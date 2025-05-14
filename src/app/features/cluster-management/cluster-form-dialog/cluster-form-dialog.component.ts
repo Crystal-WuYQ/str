@@ -16,12 +16,12 @@ import { Cluster } from '../cluster-management.component';
         </button>
       </div>
 
-      <!-- FID Access Warning -->
+      <!-- ABCID Access Warning -->
       <div class="warning-banner" *ngIf="!isEdit">
         <div class="warning-icon">⚠️</div>
         <div class="warning-content">
-          <h3>Prerequisite: FID Access Required</h3>
-          <p>Before creating a new cluster, please ensure that your FID has been granted access permissions to the target cluster. Contact your cluster administrator if you need assistance.</p>
+          <h3>Prerequisite: ABCID Access Required</h3>
+          <p>Before creating a new cluster, please ensure that your ABCID has been granted access permissions to the target cluster. Contact your cluster administrator if you need assistance.</p>
         </div>
       </div>
 
